@@ -20,6 +20,12 @@ app.add_middleware(
 def root():
     return {"status": "ok", "message": "Clinical Note Summariser API"}
 
+@app.get("/debug")
+def debug():
+    import os
+    key = os.getenv("ANTHROPIC_API_KEY")
+    return {"key_set": key is not None, "key_preview": key[:10] if key else "NOT FOUND"}
+
 @app.post("/summarise", response_model=SummaryResponse)
 def summarise_note(request: NoteRequest):
     try:
