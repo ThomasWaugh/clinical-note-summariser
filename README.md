@@ -19,7 +19,7 @@ Built to demonstrate the combination of biomedical domain knowledge and modern A
 - Anthropic Claude API
 - Docker
 - Pydantic for data validation
-- Deployed on Railway
+- Deployed live on Render — https://clinical-note-summariser.onrender.com
 
 ## Example input
 ```json
