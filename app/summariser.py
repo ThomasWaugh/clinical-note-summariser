@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from .models import NoteRequest, SummaryResponse, RiskFlag
 
-load_dotenv()
+load_dotenv(override=False)
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -37,7 +37,6 @@ def analyse_note(request: NoteRequest) -> SummaryResponse:
     )
 
     raw = message.content[0].text
-    print("RAW RESPONSE:", raw) 
     raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip() # add this line
 
     data = json.loads(raw)
