@@ -1,5 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 from .models import NoteRequest, SummaryResponse
 from .summariser import analyse_note
 
@@ -16,9 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Clinical Note Summariser API"}
+    return FileResponse(os.path.join(_static_dir, "index.html"))
 
 
 

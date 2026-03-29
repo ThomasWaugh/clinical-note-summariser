@@ -1,26 +1,58 @@
-import anthropic
-import json
 import os
 from dotenv import load_dotenv
+import anthropic
 from .models import NoteRequest, SummaryResponse, RiskFlag
 
 load_dotenv(override=False)
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-SYSTEM_PROMPT = """You are a clinical decision support assistant. 
-Analyse clinical notes and return structured JSON only — no prose, no markdown.
-Your response must be valid JSON matching this exact schema:
-{
-  "summary": "2-3 sentence plain-English summary",
-  "key_findings": ["finding 1", "finding 2"],
-  "risk_flags": [
-    {"category": "medication|vital_signs|symptom|allergy|other", 
-     "detail": "specific concern", 
-     "severity": "high|medium|low"}
-  ],
-  "recommended_actions": ["action 1", "action 2"]
-}"""
+SYSTEM_PROMPT = "You are a clinical decision support assistant. Analyse the clinical note and call the analyse_note tool with your findings."
+
+_TOOL = {
+    "name": "analyse_note",
+    "description": "Return a structured analysis of a clinical note.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "summary": {
+                "type": "string",
+                "description": "2-3 sentence plain-English summary of the note."
+            },
+            "key_findings": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of notable clinical findings."
+            },
+            "risk_flags": {
+                "type": "array",
+                "description": "List of clinical risk concerns.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "string",
+                            "enum": ["medication", "vital_signs", "symptom", "allergy", "other"]
+                        },
+                        "detail": {"type": "string"},
+                        "severity": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"]
+                        }
+                    },
+                    "required": ["category", "detail", "severity"]
+                }
+            },
+            "recommended_actions": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Suggested next steps or clinical actions."
+            }
+        },
+        "required": ["summary", "key_findings", "risk_flags", "recommended_actions"]
+    }
+}
+
 
 def analyse_note(request: NoteRequest) -> SummaryResponse:
     context = f"Patient note:\n{request.note}"
@@ -33,13 +65,13 @@ def analyse_note(request: NoteRequest) -> SummaryResponse:
         model="claude-sonnet-4-6",
         max_tokens=1024,
         system=SYSTEM_PROMPT,
+        tools=[_TOOL],
+        tool_choice={"type": "tool", "name": "analyse_note"},
         messages=[{"role": "user", "content": context}]
     )
 
-    raw = message.content[0].text
-    raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip() # add this line
-
-    data = json.loads(raw)
+    tool_block = next(b for b in message.content if b.type == "tool_use")
+    data = tool_block.input
 
     return SummaryResponse(
         summary=data["summary"],

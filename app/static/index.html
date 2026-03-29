@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clinical Note Summariser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue-900:    #1e3a5f;
+      --blue-700:    #2563eb;
+      --blue-600:    #3b82f6;
+      --blue-500:    #60a5fa;
+      --blue-100:    #dbeafe;
+      --blue-50:     #eff6ff;
+      --slate-900:   #0f172a;
+      --slate-700:   #334155;
+      --slate-500:   #64748b;
+      --slate-400:   #94a3b8;
+      --slate-300:   #cbd5e1;
+      --slate-200:   #e2e8f0;
+      --slate-100:   #f1f5f9;
+      --slate-50:    #f8fafc;
+      --white:       #ffffff;
+      --red-50:      #fef2f2;
+      --red-100:     #fee2e2;
+      --red-200:     #fecaca;
+      --red-700:     #b91c1c;
+      --red-800:     #991b1b;
+      --amber-50:    #fffbeb;
+      --amber-100:   #fef3c7;
+      --amber-200:   #fde68a;
+      --amber-700:   #b45309;
+      --amber-800:   #92400e;
+      --green-50:    #f0fdf4;
+      --green-100:   #dcfce7;
+      --green-200:   #bbf7d0;
+      --green-700:   #15803d;
+      --green-800:   #166534;
+      --radius:      12px;
+      --radius-sm:   8px;
+      --shadow-sm:   0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+      --shadow-md:   0 4px 6px -1px rgba(15,23,42,0.06), 0 2px 4px -2px rgba(15,23,42,0.04);
+      --shadow-lg:   0 10px 15px -3px rgba(15,23,42,0.07), 0 4px 6px -4px rgba(15,23,42,0.04);
+      --shadow-card: 0 1px 3px rgba(15,23,42,0.04), 0 1px 2px -1px rgba(15,23,42,0.04);
+    }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--slate-50);
+      color: var(--slate-900);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Subtle background texture ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(37,99,235,0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(37,99,235,0.03) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border-bottom: 1px solid var(--slate-200);
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--blue-700), var(--blue-500));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+    }
+    .header-icon svg { color: white; }
+
+    .header-text { display: flex; flex-direction: column; gap: 0; }
+    header h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--slate-900);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .header-sub {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--slate-400);
+      letter-spacing: 0.01em;
+    }
+
+    .header-badge {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--blue-700);
+      letter-spacing: 0.02em;
+    }
+    .header-badge .pulse {
+      width: 7px; height: 7px;
+      background: var(--blue-600);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* ── Layout ── */
+    .layout {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 440px 1fr;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* ── Left panel ── */
+    .panel-input {
+      background: var(--white);
+      border-right: 1px solid var(--slate-200);
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .panel-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--slate-400);
+    }
+    .panel-line {
+      flex: 1;
+      height: 1px;
+      background: var(--slate-200);
+    }
+
+    .field { display: flex; flex-direction: column; gap: 7px; }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--slate-700);
+    }
+
+    textarea, input, select {
+      width: 100%;
+      border: 1.5px solid var(--slate-200);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      font-size: 13.5px;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--slate-900);
+      background: var(--white);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      outline: none;
+    }
+    textarea::placeholder, input::placeholder {
+      color: var(--slate-400);
+    }
+    textarea:hover, input:hover, select:hover {
+      border-color: var(--slate-300);
+      background: var(--slate-50);
+    }
+    textarea:focus, input:focus, select:focus {
+      border-color: var(--blue-600);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      background: var(--white);
+    }
+
+    textarea {
+      font-family: 'DM Mono', 'SF Mono', monospace;
+      font-size: 12.5px;
+      resize: vertical;
+      min-height: 240px;
+      line-height: 1.7;
+    }
+
+    .patient-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .hint {
+      font-size: 11.5px;
+      color: var(--slate-400);
+      font-weight: 400;
+    }
+
+    /* ── Submit button ── */
+    button[type="submit"] {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 13px 20px;
+      background: linear-gradient(135deg, var(--blue-700) 0%, var(--blue-600) 100%);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+      position: relative;
+      overflow: hidden;
+    }
+    button[type="submit"]::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 100%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    button[type="submit"]:hover::before { opacity: 1; }
+    button[type="submit"]:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(37,99,235,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+    button[type="submit"]:active { transform: translateY(0); }
+    button[type="submit"]:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    button.loading .spinner { display: block; }
+    button.loading .btn-label { display: none; }
+
+    /* ── Right panel ── */
+    .panel-results {
+      padding: 32px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 16px;
+      text-align: center;
+      padding: 80px 40px;
+    }
+    .empty-icon {
+      width: 72px;
+      height: 72px;
+      background: var(--slate-100);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .empty-icon svg { color: var(--slate-300); }
+    .empty-state h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--slate-700);
+    }
+    .empty-state p {
+      font-size: 13.5px;
+      color: var(--slate-400);
+      max-width: 280px;
+      line-height: 1.6;
+    }
+
+    /* ── Error banner ── */
+    .error-banner {
+      background: var(--red-50);
+      border: 1px solid var(--red-200);
+      color: var(--red-800);
+      padding: 14px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Result cards ── */
+    .result-section { display: none; }
+    .result-section.visible {
+      display: block;
+      animation: cardReveal 0.4s ease both;
+    }
+
+    @keyframes cardReveal {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+      background: var(--white);
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+      transition: box-shadow 0.2s ease;
+    }
+    .card:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--slate-100);
+      background: var(--slate-50);
+    }
+    .card-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .card-icon svg { width: 14px; height: 14px; }
+    .card-icon.blue { background: var(--blue-50); color: var(--blue-700); }
+    .card-icon.amber { background: var(--amber-50); color: var(--amber-700); }
+    .card-icon.green { background: var(--green-50); color: var(--green-700); }
+
+    .card-header h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--slate-700);
+      letter-spacing: 0.01em;
+    }
+
+    .card-body { padding: 20px; }
+
+    /* ── Summary ── */
+    #summary-text {
+      font-size: 14.5px;
+      line-height: 1.75;
+      color: var(--slate-700);
+    }
+
+    /* ── Key findings ── */
+    #findings-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #findings-list li {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 13.5px;
+      color: var(--slate-700);
+      line-height: 1.55;
+    }
+    #findings-list li::before {
+      content: "";
+      display: block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--blue-600);
+      margin-top: 8px;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 3px var(--blue-50);
+    }
+
+    /* ── Risk flags ── */
+    #risk-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .risk-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid;
+      transition: transform 0.15s ease;
+    }
+    .risk-item:hover { transform: translateX(2px); }
+
+    .risk-item.high   { background: var(--red-50);   border-color: var(--red-200); }
+    .risk-item.medium { background: var(--amber-50);  border-color: var(--amber-200); }
+    .risk-item.low    { background: var(--green-50);  border-color: var(--green-200); }
+
+    .risk-badge {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .high   .risk-badge { background: var(--red-100); color: var(--red-800); }
+    .medium .risk-badge { background: var(--amber-100); color: var(--amber-800); }
+    .low    .risk-badge { background: var(--green-100); color: var(--green-800); }
+
+    .risk-content { flex: 1; }
+    .risk-category {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--slate-400);
+      margin-bottom: 4px;
+    }
+    .risk-detail { font-size: 13.5px; line-height: 1.55; }
+    .high   .risk-detail { color: var(--red-700); }
+    .medium .risk-detail { color: var(--amber-700); }
+    .low    .risk-detail { color: var(--green-700); }
+
+    /* ── Recommended actions ── */
+    #actions-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      counter-reset: actions;
+    }
+    #actions-list li {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 13.5px;
+      color: var(--slate-700);
+      line-height: 1.55;
+      counter-increment: actions;
+    }
+    #actions-list li::before {
+      content: counter(actions);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue-700), var(--blue-600));
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 1px;
+      box-shadow: 0 1px 3px rgba(37,99,235,0.25);
+    }
+
+    /* ── No-risk state ── */
+    .no-risk {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--green-700);
+      background: var(--green-50);
+      border: 1px solid var(--green-200);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Footer ── */
+    .panel-footer {
+      margin-top: auto;
+      padding-top: 24px;
+      border-top: 1px solid var(--slate-100);
+    }
+    .disclaimer {
+      font-size: 11px;
+      color: var(--slate-400);
+      line-height: 1.6;
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel-input {
+        border-right: none;
+        border-bottom: 1px solid var(--slate-200);
+      }
+      header { padding: 0 20px; }
+      .panel-input { padding: 24px 20px; }
+      .panel-results { padding: 24px 20px; }
+      .header-badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+    </svg>
+  </div>
+  <div class="header-text">
+    <h1>Clinical Note Summariser</h1>
+    <span class="header-sub">AI-powered clinical decision support</span>
+  </div>
+  <div class="header-badge">
+    <span class="pulse"></span>
+    Ready
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Input Panel ── -->
+  <aside class="panel-input">
+    <div class="panel-label">
+      <span class="panel-title">Input</span>
+      <div class="panel-line"></div>
+    </div>
+
+    <form id="note-form">
+      <div class="field" style="margin-bottom: 18px;">
+        <label for="note">Clinical note</label>
+        <textarea id="note" name="note" placeholder="Paste or type the clinical note here…" required></textarea>
+        <p class="hint">Free text, dictation, or structured note — we'll extract the key information</p>
+      </div>
+
+      <div class="patient-row" style="margin-bottom: 24px;">
+        <div class="field">
+          <label for="age">Patient age</label>
+          <input type="number" id="age" name="age" min="0" max="130" placeholder="e.g. 72" />
+        </div>
+        <div class="field">
+          <label for="sex">Patient sex</label>
+          <select id="sex" name="sex">
+            <option value="">Not specified</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" id="submit-btn">
+        <div class="spinner"></div>
+        <span class="btn-label">Analyse note</span>
+      </button>
+    </form>
+
+    <div class="panel-footer">
+      <p class="disclaimer">For decision support only — always verify findings with clinical judgement.</p>
+    </div>
+  </aside>
+
+  <!-- ── Results Panel ── -->
+  <main class="panel-results" id="results-panel">
+
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+      </div>
+      <h3>No analysis yet</h3>
+      <p>Paste a clinical note and click Analyse to generate a structured summary with risk flags and recommended actions.</p>
+    </div>
+
+    <div class="error-banner" id="error-banner" role="alert"></div>
+
+    <!-- Summary -->
+    <div class="card result-section" id="card-summary">
+      <div class="card-header">
+        <div class="card-icon blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+        </div>
+        <h2>Summary</h2>
+      </div>
+      <div class="card-body">
+        <p id="summary-text"></p>
+      </div>
+    </div>
+
+    <!-- Key findings -->
+    <div class="card result-section" id="card-findings">
+      <div class="card-header">
+        <div class="card-icon blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+        </div>
+        <h2>Key Findings</h2>
+      </div>
+      <div class="card-body">
+        <ul id="findings-list"></ul>
+      </div>
+    </div>
+
+    <!-- Risk flags -->
+    <div class="card result-section" id="card-risks">
+      <div class="card-header">
+        <div class="card-icon amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h2>Risk Flags</h2>
+      </div>
+      <div class="card-body">
+        <div id="risk-list"></div>
+      </div>
+    </div>
+
+    <!-- Recommended actions -->
+    <div class="card result-section" id="card-actions">
+      <div class="card-header">
+        <div class="card-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <h2>Recommended Actions</h2>
+      </div>
+      <div class="card-body">
+        <ol id="actions-list"></ol>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const form        = document.getElementById('note-form');
+  const btn         = document.getElementById('submit-btn');
+  const badge       = document.querySelector('.header-badge');
+  const emptyState  = document.getElementById('empty-state');
+  const errorBanner = document.getElementById('error-banner');
+  const resultCards = document.querySelectorAll('.result-section');
+
+  function setLoading(on) {
+    btn.disabled = on;
+    btn.classList.toggle('loading', on);
+    if (badge) {
+      badge.innerHTML = on
+        ? '<span class="pulse"></span>Analysing…'
+        : '<span class="pulse"></span>Ready';
+    }
+  }
+
+  function showError(msg) {
+    errorBanner.textContent = msg;
+    errorBanner.style.display = 'block';
+    emptyState.style.display = 'none';
+    resultCards.forEach(c => { c.style.display = 'none'; c.classList.remove('visible'); });
+  }
+
+  function hideError() {
+    errorBanner.style.display = 'none';
+    errorBanner.textContent = '';
+  }
+
+  function renderResults(data) {
+    hideError();
+    emptyState.style.display = 'none';
+
+    // Summary
+    document.getElementById('summary-text').textContent = data.summary;
+    revealCard('card-summary', 0);
+
+    // Key findings
+    const findingsList = document.getElementById('findings-list');
+    findingsList.innerHTML = '';
+    (data.key_findings || []).forEach(f => {
+      const li = document.createElement('li');
+      li.textContent = f;
+      findingsList.appendChild(li);
+    });
+    revealCard('card-findings', 80);
+
+    // Risk flags
+    const riskList = document.getElementById('risk-list');
+    riskList.innerHTML = '';
+    const flags = data.risk_flags || [];
+    if (flags.length === 0) {
+      riskList.innerHTML = '<p class="no-risk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> No significant risk flags identified.</p>';
+    } else {
+      flags.forEach(f => {
+        const sev = (f.severity || 'low').toLowerCase();
+        const div = document.createElement('div');
+        div.className = `risk-item ${sev}`;
+        div.innerHTML = `
+          <span class="risk-badge">${sev}</span>
+          <div class="risk-content">
+            <p class="risk-category">${escapeHtml(f.category)}</p>
+            <p class="risk-detail">${escapeHtml(f.detail)}</p>
+          </div>`;
+        riskList.appendChild(div);
+      });
+    }
+    revealCard('card-risks', 160);
+
+    // Recommended actions
+    const actionsList = document.getElementById('actions-list');
+    actionsList.innerHTML = '';
+    (data.recommended_actions || []).forEach(a => {
+      const li = document.createElement('li');
+      li.textContent = a;
+      actionsList.appendChild(li);
+    });
+    revealCard('card-actions', 240);
+  }
+
+  function revealCard(id, delay) {
+    const el = document.getElementById(id);
+    el.style.display = 'none';
+    el.classList.remove('visible');
+    setTimeout(() => {
+      el.style.display = 'block';
+      // Trigger reflow for animation
+      void el.offsetWidth;
+      el.classList.add('visible');
+    }, delay);
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    hideError();
+
+    const note = document.getElementById('note').value.trim();
+    const age  = document.getElementById('age').value;
+    const sex  = document.getElementById('sex').value;
+
+    const body = { note };
+    if (age) body.patient_age = parseInt(age, 10);
+    if (sex) body.patient_sex = sex;
+
+    try {
+      const res = await fetch('/summarise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      showError(err.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+</body>
+</html>
