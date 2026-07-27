@@ -4,7 +4,7 @@ An AI-powered clinical decision support tool that analyses free-text clinical no
 
 Built with FastAPI and the Anthropic Claude API. Designed to demonstrate the intersection of biomedical domain knowledge and modern AI engineering.
 
-**[Live demo →](https://clinical-note-summariser.onrender.com)**
+**[Live demo →](https://clinical-note-summariser-1.onrender.com)**
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776ab?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
